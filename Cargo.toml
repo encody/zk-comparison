@@ -1,0 +1,15 @@
+[package]
+name = "proxy-verify"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+plonky2  = { git = "https://github.com/mir-protocol/plonky2.git" }
+plonky2x = { git = "https://github.com/succinctlabs/succinctx.git" }
+serde = "1"
+
+[patch."https://github.com/succinctlabs/starkyx.git"]
+starkyx = { git = "https://github.com/dndll/starkyx.git" }
+
+[patch."https://github.com/succinctlabs/succinctx.git"]
+plonky2x = { git = "https://github.com/dndll/succinctx.git" }
