@@ -1,3 +1,4 @@
+use ethers::types::H256;
 use plonky2x::{
     frontend::hint::simple::hint::Hint,
     prelude::{
@@ -82,65 +83,67 @@ fn test_sqrt() {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct HashHint {
-    sequence_number: u32,
-    secret_identifier: Vec<u8>,
+    sequence_number: u128,
+    secret_identifier: u128,
 }
 
 impl HashHint {
     pub fn hash(&self) -> [u8; 32] {
         let payload = [
-            &self.sequence_number.to_be_bytes()[..],
-            &self.secret_identifier[..],
+            u128_to_32_be(self.sequence_number),
+            u128_to_32_be(self.secret_identifier),
         ]
         .concat();
         sha256(&payload)
     }
 }
 
+impl<L: PlonkParameters<D>, const D: usize> Hint<L, D> for HashHint {
+    fn hint(&self, _input_stream: &mut ValueStream<L, D>, output_stream: &mut ValueStream<L, D>) {
+        output_stream.write_value::<Bytes32Variable>(u128_to_32_be(self.sequence_number).into());
+        output_stream.write_value::<Bytes32Variable>(u128_to_32_be(self.secret_identifier).into());
+    }
+}
+
+fn u128_to_32_be(u: u128) -> [u8; 32] {
+    let mut v = [0u8; 32];
+    v[16..32].copy_from_slice(&u.to_be_bytes());
+    v
+}
+
 #[test]
 fn calc_hash() {
     let h = HashHint {
         sequence_number: 123,
-        secret_identifier: vec![22; 256],
+        secret_identifier: 456,
     };
 
-    println!("{:?}", h.hash());
+    assert_eq!(
+        H256::from(h.hash()),
+        bytes32!("0xe03e1ee464b067e1fd0570cd3ca6829cf5041843ec151dffbc3b29340ee77045"),
+    );
 }
 
+// 387.41s
 #[test]
 fn test_hash() {
-    let preimage = HashHint {
-        sequence_number: 123,
-        secret_identifier: vec![22; 256],
-    };
-
-    impl<L: PlonkParameters<D>, const D: usize> Hint<L, D> for HashHint {
-        fn hint(
-            &self,
-            _input_stream: &mut ValueStream<L, D>,
-            output_stream: &mut ValueStream<L, D>,
-        ) {
-            output_stream.write_value::<Bytes32Variable>(self.hash().into());
-        }
-    }
-
     let mut builder = DefaultBuilder::new();
 
-    let output_stream = builder.hint(VariableStream::new(), preimage);
-    let calculated_hash = output_stream.read::<Bytes32Variable>(&mut builder);
-    let input_hash = builder.read::<Bytes32Variable>();
-    builder.assert_is_equal(input_hash, calculated_hash);
+    let h = HashHint {
+        sequence_number: 123,
+        secret_identifier: 456,
+    };
+    let output_stream = builder.hint(VariableStream::new(), h.clone());
+    let sequence_number = output_stream.read::<Bytes32Variable>(&mut builder);
+    let secret_identifier = output_stream.read::<Bytes32Variable>(&mut builder);
+    let actual_hash = builder.curta_sha256_pair(sequence_number, secret_identifier);
+    let expected_hash = builder.read::<Bytes32Variable>();
+    builder.assert_is_equal(actual_hash, expected_hash);
 
     let circuit = builder.build();
 
     let mut input = circuit.input();
-    input.write::<Bytes32Variable>(
-        [
-            216, 107, 140, 71, 138, 50, 175, 97, 144, 26, 143, 64, 19, 118, 124, 228, 99, 71, 25,
-            252, 217, 236, 133, 254, 140, 172, 180, 216, 110, 137, 3, 35,
-        ]
-        .into(),
-    );
+    input.write::<Bytes32Variable>(H256::from(h.hash()));
 
     let (proof, output) = circuit.prove(&input);
 

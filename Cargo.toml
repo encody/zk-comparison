@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+ethers = "2.0.13"
 plonky2  = { git = "https://github.com/mir-protocol/plonky2.git" }
 plonky2x = { git = "https://github.com/succinctlabs/succinctx.git" }
 serde = "1"
