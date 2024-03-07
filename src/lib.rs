@@ -127,16 +127,18 @@ fn calc_hash() {
 // 387.41s
 #[test]
 fn test_hash() {
-    let mut builder = DefaultBuilder::new();
-
     let h = HashHint {
         sequence_number: 123,
         secret_identifier: 456,
     };
+    let mut builder = DefaultBuilder::new();
     let output_stream = builder.hint(VariableStream::new(), h.clone());
-    let sequence_number = output_stream.read::<Bytes32Variable>(&mut builder);
-    let secret_identifier = output_stream.read::<Bytes32Variable>(&mut builder);
-    let actual_hash = builder.curta_sha256_pair(sequence_number, secret_identifier);
+    let sequence_number = output_stream
+        .read::<Bytes32Variable>(&mut builder);
+    let secret_identifier = output_stream
+        .read::<Bytes32Variable>(&mut builder);
+    let actual_hash = builder
+        .curta_sha256_pair(sequence_number, secret_identifier);
     let expected_hash = builder.read::<Bytes32Variable>();
     builder.assert_is_equal(actual_hash, expected_hash);
 
